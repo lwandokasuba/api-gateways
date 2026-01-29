@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v3.6.2 # Use a specific version or 'latest'
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false" # Only expose containers with specific labels
+      - "--api.insecure=true" # Enables the API and dashboard on port 8080 (insecure for dev only)
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080" # The Traefik dashboard port
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Mount the Docker socket for discovery
+    networks:
+      - proxy
+
+  # Example whoami service
+  whoami:
+    image: traefik/whoami
+    labels:
+      # Expose this service to Traefik
+      - "traefik.enable=true"
+      # Define a router and rule for this service
+      - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`)"
+      # Define the service port
+      - "traefik.http.services.whoami.loadbalancer.server.port=80"
+    networks:
+      - proxy
+
+  alpha:
+    build: ./services/go-microservice
+    environment:
+      SERVICE_NAME: alpha
+      SERVICE_PORT: 8080
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.alpha.rule=Host(`alpha.localhost`)"
+      - "traefik.http.routers.alpha.entrypoints=web"
+      - "traefik.http.services.alpha.loadbalancer.server.port=8080"
+    networks:
+      - proxy
+
+  beta:
+    build: ./services/go-microservice
+    environment:
+      SERVICE_NAME: beta
+      SERVICE_PORT: 8080
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.beta.rule=Host(`beta.localhost`)"
+      - "traefik.http.routers.beta.entrypoints=web"
+      - "traefik.http.services.beta.loadbalancer.server.port=8080"
+    networks:
+      - proxy
+
+  gamma:
+    build: ./services/go-microservice
+    environment:
+      SERVICE_NAME: gamma
+      SERVICE_PORT: 8080
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gamma.rule=Host(`gamma.localhost`)"
+      - "traefik.http.routers.gamma.entrypoints=web"
+      - "traefik.http.services.gamma.loadbalancer.server.port=8080"
+    networks:
+      - proxy
+
+networks:
+  proxy: {}
