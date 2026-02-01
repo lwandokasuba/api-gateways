@@ -1,0 +1,40 @@
+{
+    "realm": "kong-realm",
+    "enabled": true,
+    "users": [
+        {
+            "username": "user1",
+            "enabled": true,
+            "emailVerified": true,
+            "firstName": "Test",
+            "lastName": "User",
+            "credentials": [
+                {
+                    "type": "password",
+                    "value": "password"
+                }
+            ],
+            "realmRoles": [
+                "offline_access",
+                "uma_authorization"
+            ]
+        }
+    ],
+    "clients": [
+        {
+            "clientId": "kong-client",
+            "enabled": true,
+            "protocol": "openid-connect",
+            "publicClient": false,
+            "secret": "client-secret",
+            "redirectUris": [
+                "*"
+            ],
+            "webOrigins": [
+                "*"
+            ],
+            "directAccessGrantsEnabled": true,
+            "standardFlowEnabled": true
+        }
+    ]
+}
