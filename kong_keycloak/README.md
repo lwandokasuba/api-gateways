@@ -82,6 +82,26 @@ You can use the browser to visit `http://localhost:8000/private1`. You will be r
 * Credentials: `user1` / `password`.
 * After login, you will see the JSON response from the service.
 
+### Private API (Bearer Token Route)
+This route `http://localhost:8000/private-token` is configured with `bearer_only=yes`, meaning it will not redirect to login but expects a valid Bearer token.
+
+**1. Get Token:**
+```bash
+export TOKEN=$(curl -s -X POST http://localhost:8000/realms/kong-realm/protocol/openid-connect/token \
+  -d client_id=kong-client \
+  -d client_secret=client-secret \
+  -d username=user1 \
+  -d password=password \
+  -d grant_type=password | jq -r .access_token)
+echo $TOKEN
+```
+
+**2. Access Service:**
+```bash
+curl -i -H "Authorization: Bearer $TOKEN" http://localhost:8000/private-token
+# HTTP/1.1 200 OK
+```
+
 ## 🔐 Keycloak Details
 - **Console**: [http://localhost:8080](http://localhost:8080)
 - **Admin**: `admin` / `admin`

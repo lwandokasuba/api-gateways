@@ -54,6 +54,8 @@ services:
     depends_on:
       kong-migration:
         condition: service_completed_successfully
+    extra_hosts:
+      - "localhost:host-gateway"
     ports:
       - "8000:8000" # Proxy
       - "8001:8001" # Admin API
@@ -89,6 +91,11 @@ services:
       KC_DB_PASSWORD: keycloakpass
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: my.keycloak.org
+      KC_HOSTNAME_URL: http://localhost:8000
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
     ports:
       - "8080:8080"
     depends_on:

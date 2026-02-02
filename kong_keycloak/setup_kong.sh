@@ -7,6 +7,24 @@ until curl -s $KONG_ADMIN; do
   sleep 2
 done
 
+# --- Proxy Keycloak ---
+echo "Configuring Keycloak Proxy..."
+# Check if service exists (idempotent-ish check not strict, POST will fail if exists, which is fine)
+# But strictly, we should check status. Assuming fail on conflict is okay or we can use PUT if we knew ID.
+# Since this is a setup script, we assume clean or acceptable conflicts.
+
+curl -i -X POST $KONG_ADMIN/services \
+  --data name=keycloak-gateway \
+  --data url=http://keycloak:8080
+
+curl -i -X POST $KONG_ADMIN/services/keycloak-gateway/routes \
+  --data name=keycloak-route \
+  --data paths[]=/realms \
+  --data paths[]=/resources \
+  --data paths[]=/js \
+  --data paths[]=/robots.txt
+
+# --- Public Service ---
 echo "Configuring Public Service..."
 curl -i -X POST $KONG_ADMIN/services \
   --data name=service-public \
@@ -27,6 +45,7 @@ curl -i -X POST $KONG_ADMIN/consumers \
 curl -i -X POST $KONG_ADMIN/consumers/external-user/key-auth \
   --data key=apikey123
 
+# --- Private Services ---
 echo "Configuring Private Service 1..."
 curl -i -X POST $KONG_ADMIN/services \
   --data name=service-private-1 \
@@ -37,23 +56,36 @@ curl -i -X POST $KONG_ADMIN/services/service-private-1/routes \
   --data paths[]=/private1
 
 echo "Enabling OIDC on Private Service 1..."
-# Note: discovery url might need to use internal docker network name if kong -> keycloak
-# but for browser redirection, the issuer in token must match what browser sees.
-# This is tricky with Docker networking + localhost.
-# Keycloak frontend URL needs to be set if accessed from host.
-# For simplicity, we assume everything is localhost for now, but Kong container needs to resolve 'keycloak'.
-# We often need to set KC_HOSTNAME or KC_HOSTNAME_URL.
+# Point discovery to internal Keycloak.
+# Keycloak (KC_HOSTNAME_URL=localhost:8000) will return issuer=localhost:8000.
+# Kong validation passes as discovery url domain is ignored or irrelevant if signatures match.
+# Wait, discovery URL is http://keycloak:8080. Body iss is http://localhost:8000.
+# lua-resty-openidc might check this. If it fails, we set config.issuer explicitly.
 
 curl -i -X POST $KONG_ADMIN/services/service-private-1/plugins \
   --data name=oidc \
   --data config.client_id=kong-client \
   --data config.client_secret=client-secret \
-  --data config.discovery=http://keycloak:8080/realms/kong-realm/.well-known/openid-configuration \
-  --data config.redirect_uri_path_pattern="/private1"
-# For OIDC to work comfortably in docker, ensure 'keycloak' hostname is resolvable by Kong.
-# And browser can also see 'keycloak' (via /etc/hosts) OR use localhost throughout.
-# If using localhost for discovery, Kong must be able to hit localhost:8080 (which is itself? No. It's host).
-# Best is to use internal docker name for discovery: http://keycloak:8080/...
+  --data config.discovery=http://localhost:8000/realms/kong-realm/.well-known/openid-configuration \
+  --data config.logout_path=/logout \
+  --data config.redirect_after_logout_uri=/
+
+echo "Configuring Private Service 1 (Token/Bearer Only)..."
+curl -i -X POST $KONG_ADMIN/services \
+  --data name=service-private-1-token \
+  --data url=http://service-private-1:8080
+
+curl -i -X POST $KONG_ADMIN/services/service-private-1-token/routes \
+  --data name=private-1-token-route \
+  --data paths[]=/private-token
+
+echo "Enabling OIDC (Bearer Only) on Private Service 1 Token..."
+curl -i -X POST $KONG_ADMIN/services/service-private-1-token/plugins \
+  --data name=oidc \
+  --data config.client_id=kong-client \
+  --data config.client_secret=client-secret \
+  --data config.discovery=http://localhost:8000/realms/kong-realm/.well-known/openid-configuration \
+  --data config.bearer_only=yes
 
 echo "Configuring Private Service 2..."
 curl -i -X POST $KONG_ADMIN/services \
@@ -68,7 +100,8 @@ curl -i -X POST $KONG_ADMIN/services/service-private-2/plugins \
   --data name=oidc \
   --data config.client_id=kong-client \
   --data config.client_secret=client-secret \
-  --data config.discovery=http://keycloak:8080/realms/kong-realm/.well-known/openid-configuration \
-  --data config.redirect_uri_path_pattern="/private2"
+  --data config.discovery=http://localhost:8000/realms/kong-realm/.well-known/openid-configuration \
+  --data config.logout_path=/logout \
+  --data config.redirect_after_logout_uri=/
 
 echo "Done!"

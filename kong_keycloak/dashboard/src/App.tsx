@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { Activity, Server, Shield, Plus } from 'lucide-react';
+import { Activity, Server, Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getServices, getRoutes } from './api';
 import './index.css';
